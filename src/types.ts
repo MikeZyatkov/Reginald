@@ -39,6 +39,8 @@ export interface RegisteredGroup {
   added_at: string;
   containerConfig?: ContainerConfig;
   requiresTrigger?: boolean; // Default: true for groups, false for solo chats
+  model?: string; // Claude model override (e.g., 'claude-sonnet-4-6')
+  assistantName?: string; // Override ASSISTANT_NAME for this group/agent
 }
 
 export interface NewMessage {

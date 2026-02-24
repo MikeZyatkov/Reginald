@@ -1,4 +1,5 @@
 import { Channel, NewMessage } from './types.js';
+import { baseJid } from './virtual-jid.js';
 
 export function escapeXml(s: string): string {
   if (!s) return '';
@@ -31,14 +32,15 @@ export function routeOutbound(
   jid: string,
   text: string,
 ): Promise<void> {
-  const channel = channels.find((c) => c.ownsJid(jid) && c.isConnected());
+  const base = baseJid(jid);
+  const channel = channels.find((c) => c.ownsJid(base) && c.isConnected());
   if (!channel) throw new Error(`No channel for JID: ${jid}`);
-  return channel.sendMessage(jid, text);
+  return channel.sendMessage(base, text);
 }
 
 export function findChannel(
   channels: Channel[],
   jid: string,
 ): Channel | undefined {
-  return channels.find((c) => c.ownsJid(jid));
+  return channels.find((c) => c.ownsJid(baseJid(jid)));
 }

@@ -27,6 +27,7 @@ interface ContainerInput {
   isMain: boolean;
   isScheduledTask?: boolean;
   assistantName?: string;
+  model?: string;
   secrets?: Record<string, string>;
 }
 
@@ -414,9 +415,16 @@ async function runQuery(
     log(`Additional directories: ${extraDirs.join(', ')}`);
   }
 
+  // Resolve model: explicit input > CLAUDE_MODEL env var > SDK default
+  const model = containerInput.model || process.env.CLAUDE_MODEL || undefined;
+  if (model) {
+    log(`Using model: ${model}`);
+  }
+
   for await (const message of query({
     prompt: stream,
     options: {
+      model,
       cwd: '/workspace/group',
       additionalDirectories: extraDirs.length > 0 ? extraDirs : undefined,
       resume: sessionId,
