@@ -10,6 +10,7 @@ const envConfig = readEnvFile([
   'ASSISTANT_HAS_OWN_NUMBER',
   'TELEGRAM_BOT_TOKEN',
   'TELEGRAM_ONLY',
+  'WHISPER_MODEL',
 ]);
 
 export const ASSISTANT_NAME =
@@ -74,3 +75,8 @@ export const TELEGRAM_BOT_TOKEN =
   process.env.TELEGRAM_BOT_TOKEN || envConfig.TELEGRAM_BOT_TOKEN || '';
 export const TELEGRAM_ONLY =
   (process.env.TELEGRAM_ONLY || envConfig.TELEGRAM_ONLY) === 'true';
+
+// Local Whisper transcription (faster-whisper via Python)
+// Model name for faster-whisper, e.g. 'base', 'small', 'medium', 'large-v3'
+export const WHISPER_MODEL =
+  process.env.WHISPER_MODEL || envConfig.WHISPER_MODEL || '';

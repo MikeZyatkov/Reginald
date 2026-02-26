@@ -11,9 +11,16 @@ export function escapeXml(s: string): string {
 }
 
 export function formatMessages(messages: NewMessage[]): string {
-  const lines = messages.map((m) =>
-    `<message sender="${escapeXml(m.sender_name)}" time="${m.timestamp}">${escapeXml(m.content)}</message>`,
-  );
+  const lines = messages.map((m) => {
+    let inner = escapeXml(m.content);
+    if (m.media && m.media.length > 0) {
+      const mediaTags = m.media.map((media) =>
+        `\n<media type="${escapeXml(media.type)}" path="${escapeXml(media.filePath)}" mimeType="${escapeXml(media.mimeType)}"/>`,
+      ).join('');
+      inner += mediaTags;
+    }
+    return `<message sender="${escapeXml(m.sender_name)}" time="${m.timestamp}">${inner}</message>`;
+  });
   return `<messages>\n${lines.join('\n')}\n</messages>`;
 }
 

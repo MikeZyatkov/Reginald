@@ -43,6 +43,13 @@ export interface RegisteredGroup {
   assistantName?: string; // Override ASSISTANT_NAME for this group/agent
 }
 
+export interface MediaAttachment {
+  type: 'image' | 'video' | 'document';
+  mimeType: string;
+  filePath: string;
+  caption?: string;
+}
+
 export interface NewMessage {
   id: string;
   chat_jid: string;
@@ -52,6 +59,7 @@ export interface NewMessage {
   timestamp: string;
   is_from_me?: boolean;
   is_bot_message?: boolean;
+  media?: MediaAttachment[];
 }
 
 export interface ScheduledTask {

@@ -5,20 +5,21 @@ import path from 'path';
 import makeWASocket, {
   Browsers,
   DisconnectReason,
+  downloadMediaMessage,
   WASocket,
   fetchLatestWaWebVersion,
   makeCacheableSignalKeyStore,
   useMultiFileAuthState,
 } from '@whiskeysockets/baileys';
 
-import { ASSISTANT_HAS_OWN_NUMBER, ASSISTANT_NAME, STORE_DIR } from '../config.js';
+import { ASSISTANT_HAS_OWN_NUMBER, ASSISTANT_NAME, GROUPS_DIR, STORE_DIR } from '../config.js';
 import {
   getLastGroupSync,
   setLastGroupSync,
   updateChatName,
 } from '../db.js';
 import { logger } from '../logger.js';
-import { Channel, OnInboundMessage, OnChatMetadata, RegisteredGroup } from '../types.js';
+import { Channel, MediaAttachment, OnInboundMessage, OnChatMetadata, RegisteredGroup } from '../types.js';
 
 const GROUP_SYNC_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
@@ -172,37 +173,53 @@ export class WhatsAppChannel implements Channel {
         // Only deliver full message for registered groups
         const groups = this.opts.registeredGroups();
         if (groups[chatJid]) {
+          const imageMsg = msg.message?.imageMessage;
+          const videoMsg = msg.message?.videoMessage;
+          const documentMsg = msg.message?.documentMessage;
+          const hasMedia = !!(imageMsg || videoMsg || documentMsg);
+
           const content =
             msg.message?.conversation ||
             msg.message?.extendedTextMessage?.text ||
-            msg.message?.imageMessage?.caption ||
-            msg.message?.videoMessage?.caption ||
+            imageMsg?.caption ||
+            videoMsg?.caption ||
+            documentMsg?.caption ||
             '';
 
-          // Skip protocol messages with no text content (encryption keys, read receipts, etc.)
-          if (!content) continue;
+          // Skip protocol messages with no text content AND no media
+          if (!content && !hasMedia) continue;
 
           const sender = msg.key.participant || msg.key.remoteJid || '';
           const senderName = msg.pushName || sender.split('@')[0];
 
           const fromMe = msg.key.fromMe || false;
-          // Detect bot messages: with own number, fromMe is reliable
-          // since only the bot sends from that number.
-          // With shared number, bot messages carry the assistant name prefix
-          // (even in DMs/self-chat) so we check for that.
           const isBotMessage = ASSISTANT_HAS_OWN_NUMBER
             ? fromMe
             : content.startsWith(`${ASSISTANT_NAME}:`);
+
+          // Download media if present
+          let media: MediaAttachment[] | undefined;
+          if (hasMedia && !isBotMessage) {
+            const groupFolder = groups[chatJid].folder;
+            const downloaded = await this.downloadWAMedia(msg, groupFolder, imageMsg, videoMsg, documentMsg);
+            if (downloaded) {
+              media = [downloaded];
+            }
+          }
+
+          // For media messages without text, use a placeholder
+          const finalContent = content || (imageMsg ? '[Photo]' : videoMsg ? '[Video]' : documentMsg ? `[Document: ${documentMsg.fileName || 'file'}]` : '');
 
           this.opts.onMessage(chatJid, {
             id: msg.key.id || '',
             chat_jid: chatJid,
             sender,
             sender_name: senderName,
-            content,
+            content: finalContent,
             timestamp,
             is_from_me: fromMe,
             is_bot_message: isBotMessage,
+            media,
           });
         }
       }
@@ -289,6 +306,60 @@ export class WhatsAppChannel implements Channel {
       logger.info({ count }, 'Group metadata synced');
     } catch (err) {
       logger.error({ err }, 'Failed to sync group metadata');
+    }
+  }
+
+  /**
+   * Download media from a WhatsApp message and save to the group's media directory.
+   * Returns a MediaAttachment, or null on failure.
+   */
+  private async downloadWAMedia(
+    msg: Parameters<typeof downloadMediaMessage>[0],
+    groupFolder: string,
+    imageMsg: { mimetype?: string | null; caption?: string | null } | null | undefined,
+    videoMsg: { mimetype?: string | null; caption?: string | null } | null | undefined,
+    documentMsg: { mimetype?: string | null; fileName?: string | null; caption?: string | null } | null | undefined,
+  ): Promise<MediaAttachment | null> {
+    try {
+      const buffer = await downloadMediaMessage(msg, 'buffer', {});
+
+      let mediaType: 'image' | 'video' | 'document';
+      let mimeType: string;
+      let ext: string;
+      let caption: string | undefined;
+
+      if (imageMsg) {
+        mediaType = 'image';
+        mimeType = imageMsg.mimetype || 'image/jpeg';
+        ext = mimeType === 'image/png' ? '.png' : mimeType === 'image/webp' ? '.webp' : '.jpg';
+        caption = imageMsg.caption || undefined;
+      } else if (videoMsg) {
+        mediaType = 'video';
+        mimeType = videoMsg.mimetype || 'video/mp4';
+        ext = '.mp4';
+        caption = videoMsg.caption || undefined;
+      } else if (documentMsg) {
+        mediaType = 'document';
+        mimeType = documentMsg.mimetype || 'application/octet-stream';
+        const fileName = documentMsg.fileName || 'file';
+        ext = path.extname(fileName) || '';
+        caption = documentMsg.caption || undefined;
+      } else {
+        return null;
+      }
+
+      const mediaDir = path.join(GROUPS_DIR, groupFolder, 'media');
+      fs.mkdirSync(mediaDir, { recursive: true });
+
+      const filename = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}${ext}`;
+      const filePath = path.join(mediaDir, filename);
+      fs.writeFileSync(filePath, buffer);
+
+      logger.info({ filePath, size: buffer.length, mediaType }, 'WhatsApp media saved');
+      return { type: mediaType, mimeType, filePath, caption };
+    } catch (err) {
+      logger.error({ err }, 'Failed to download WhatsApp media');
+      return null;
     }
   }
 
