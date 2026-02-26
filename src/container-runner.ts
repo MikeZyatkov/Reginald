@@ -77,6 +77,16 @@ function buildVolumeMounts(
       readonly: false,
     });
 
+    // Interview copilot project read-write
+    const interviewCopilot = process.env.HOME
+      ? path.join(process.env.HOME, 'Projects', 'interview-copilot-v2')
+      : '/Users/user/Projects/interview-copilot-v2';
+    mounts.push({
+      hostPath: interviewCopilot,
+      containerPath: '/workspace/interview-copilot',
+      readonly: false,
+    });
+
     // Main also gets its group folder as the working directory
     mounts.push({
       hostPath: groupDir,

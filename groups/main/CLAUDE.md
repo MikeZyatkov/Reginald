@@ -70,6 +70,21 @@ When you learn something important:
 - Split files larger than 500 lines into folders
 - Keep an index in your memory for the files you create
 
+## Self-Improvement Loop
+
+Lessons are stored in `/workspace/mike-personal-workspace/lessons/` organized by category:
+- `index.md` — category index
+- `workflow.md` — planning, scope control, task management
+- `technical.md` — git, qmd, builds, container quirks
+- `communication.md` — Mike's preferences, formatting, tone
+- `tools.md` — agent-browser, qmd, yt-dlp, environment specifics
+
+**Rules:**
+1. **Session start**: Read `lessons/index.md` and scan relevant lesson files before starting work
+2. **After ANY correction from Mike**: Update the relevant lesson file with the pattern — write a rule that prevents repeating the mistake
+3. **Ruthlessly iterate**: If the same type of mistake happens twice, escalate the rule (make it more specific, add examples)
+4. **New category needed?**: Create a new .md file and add it to index.md
+
 ## Telegram Formatting
 
 You communicate via Telegram. Use Telegram-compatible formatting:
@@ -97,6 +112,8 @@ cd /workspace/mike-personal-workspace && git remote set-url origin "https://${GI
 ```
 
 This makes `qmd` available for searching Mike's knowledge bases and enables git push/pull to the my-workspace repo.
+
+After setup, **read lessons**: scan `/workspace/mike-personal-workspace/lessons/index.md` and review relevant lesson files to avoid repeating past mistakes.
 
 ---
 
