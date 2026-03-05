@@ -533,7 +533,7 @@ describe('TelegramChannel', () => {
       const channel = new TelegramChannel('test-token', opts);
       await channel.connect();
 
-      const ctx = createMediaCtx({});
+      const ctx = createMediaCtx({ extra: { photo: [{ file_id: 'photo-sm', width: 100, height: 100 }, { file_id: 'photo-lg', width: 800, height: 600 }] } });
       await triggerMediaMessage('message:photo', ctx);
 
       expect(opts.onMessage).toHaveBeenCalledWith(
@@ -547,12 +547,12 @@ describe('TelegramChannel', () => {
       const channel = new TelegramChannel('test-token', opts);
       await channel.connect();
 
-      const ctx = createMediaCtx({ caption: 'Look at this' });
+      const ctx = createMediaCtx({ caption: 'Look at this', extra: { photo: [{ file_id: 'photo-sm', width: 100, height: 100 }, { file_id: 'photo-lg', width: 800, height: 600 }] } });
       await triggerMediaMessage('message:photo', ctx);
 
       expect(opts.onMessage).toHaveBeenCalledWith(
         'tg:100200300',
-        expect.objectContaining({ content: '[Photo] Look at this' }),
+        expect.objectContaining({ content: 'Look at this' }),
       );
     });
 
@@ -561,7 +561,7 @@ describe('TelegramChannel', () => {
       const channel = new TelegramChannel('test-token', opts);
       await channel.connect();
 
-      const ctx = createMediaCtx({});
+      const ctx = createMediaCtx({ extra: { video: { file_id: 'video-123', mime_type: 'video/mp4' } } });
       await triggerMediaMessage('message:video', ctx);
 
       expect(opts.onMessage).toHaveBeenCalledWith(
