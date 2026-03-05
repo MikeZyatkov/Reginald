@@ -6,7 +6,7 @@ import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 vi.mock('../config.js', () => ({
   ASSISTANT_NAME: 'Andy',
   TRIGGER_PATTERN: /^@Andy\b/i,
-  WHISPER_MODEL_PATH: '',
+  WHISPER_MODEL: '',
 }));
 
 // Mock logger
