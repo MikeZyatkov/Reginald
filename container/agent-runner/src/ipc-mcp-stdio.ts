@@ -68,6 +68,64 @@ server.tool(
 );
 
 server.tool(
+  'send_image',
+  'Send an image to the user or group. Use this to share screenshots, charts, maps, or any image file. Supports png, jpg, jpeg, gif, and webp.',
+  {
+    image_path: z
+      .string()
+      .describe(
+        'Absolute path to the image file inside the container (e.g., "/workspace/group/media/screenshot.png")',
+      ),
+    caption: z
+      .string()
+      .optional()
+      .describe('Optional caption text to display with the image'),
+  },
+  async (args) => {
+    // Validate file exists
+    if (!fs.existsSync(args.image_path)) {
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: `File not found: ${args.image_path}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+
+    // Validate extension
+    const ext = path.extname(args.image_path).toLowerCase();
+    const supported = ['.png', '.jpg', '.jpeg', '.gif', '.webp'];
+    if (!supported.includes(ext)) {
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: `Unsupported image type: ${ext}. Supported: ${supported.join(', ')}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+
+    const data: Record<string, string | undefined> = {
+      type: 'image',
+      chatJid,
+      imagePath: args.image_path,
+      caption: args.caption || undefined,
+      groupFolder,
+      timestamp: new Date().toISOString(),
+    };
+
+    writeIpcFile(MESSAGES_DIR, data);
+
+    return { content: [{ type: 'text' as const, text: 'Image sent.' }] };
+  },
+);
+
+server.tool(
   'schedule_task',
   `Schedule a recurring or one-time task. The task will run as a full agent with access to all tools. Returns the task ID for future reference. To modify an existing task, use update_task instead.
 

@@ -4,7 +4,7 @@ import os from 'os';
 import path from 'path';
 import { promisify } from 'util';
 
-import { Bot } from 'grammy';
+import { Bot, InputFile } from 'grammy';
 
 import {
   ASSISTANT_NAME,
@@ -554,6 +554,29 @@ export class TelegramChannel implements Channel {
       logger.info({ jid, length: text.length }, 'Telegram message sent');
     } catch (err) {
       logger.error({ jid, err }, 'Failed to send Telegram message');
+    }
+  }
+
+  async sendImage(
+    jid: string,
+    imagePath: string,
+    caption?: string,
+  ): Promise<void> {
+    if (!this.bot) {
+      logger.warn('Telegram bot not initialized');
+      return;
+    }
+
+    try {
+      const numericId = baseJid(jid).replace(/^tg:/, '');
+      await this.bot.api.sendPhoto(
+        numericId,
+        new InputFile(imagePath),
+        caption ? { caption } : undefined,
+      );
+      logger.info({ jid, imagePath }, 'Telegram image sent');
+    } catch (err) {
+      logger.error({ jid, imagePath, err }, 'Failed to send Telegram image');
     }
   }
 
