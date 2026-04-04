@@ -809,7 +809,10 @@ async function main(): Promise<void> {
     sendImage: (jid, imagePath, caption) => {
       const channel = findChannel(channels, jid);
       if (!channel) throw new Error(`No channel for JID: ${jid}`);
-      if (!channel.sendImage) throw new Error(`Channel ${channel.name} does not support sending images`);
+      if (!channel.sendImage)
+        throw new Error(
+          `Channel ${channel.name} does not support sending images`,
+        );
       return channel.sendImage(jid, imagePath, caption);
     },
     registeredGroups: () => registeredGroups,
