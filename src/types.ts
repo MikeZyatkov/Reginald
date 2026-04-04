@@ -61,6 +61,10 @@ export interface NewMessage {
   is_from_me?: boolean;
   is_bot_message?: boolean;
   media?: MediaAttachment[];
+  thread_id?: string;
+  reply_to_message_id?: string;
+  reply_to_message_content?: string;
+  reply_to_sender_name?: string;
 }
 
 export interface ScheduledTask {
@@ -68,6 +72,7 @@ export interface ScheduledTask {
   group_folder: string;
   chat_jid: string;
   prompt: string;
+  script?: string | null;
   schedule_type: 'cron' | 'interval' | 'once';
   schedule_value: string;
   context_mode: 'group' | 'isolated';
