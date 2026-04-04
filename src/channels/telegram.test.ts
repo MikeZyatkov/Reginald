@@ -533,7 +533,14 @@ describe('TelegramChannel', () => {
       const channel = new TelegramChannel('test-token', opts);
       await channel.connect();
 
-      const ctx = createMediaCtx({ extra: { photo: [{ file_id: 'photo-sm', width: 100, height: 100 }, { file_id: 'photo-lg', width: 800, height: 600 }] } });
+      const ctx = createMediaCtx({
+        extra: {
+          photo: [
+            { file_id: 'photo-sm', width: 100, height: 100 },
+            { file_id: 'photo-lg', width: 800, height: 600 },
+          ],
+        },
+      });
       await triggerMediaMessage('message:photo', ctx);
 
       expect(opts.onMessage).toHaveBeenCalledWith(
@@ -547,7 +554,15 @@ describe('TelegramChannel', () => {
       const channel = new TelegramChannel('test-token', opts);
       await channel.connect();
 
-      const ctx = createMediaCtx({ caption: 'Look at this', extra: { photo: [{ file_id: 'photo-sm', width: 100, height: 100 }, { file_id: 'photo-lg', width: 800, height: 600 }] } });
+      const ctx = createMediaCtx({
+        caption: 'Look at this',
+        extra: {
+          photo: [
+            { file_id: 'photo-sm', width: 100, height: 100 },
+            { file_id: 'photo-lg', width: 800, height: 600 },
+          ],
+        },
+      });
       await triggerMediaMessage('message:photo', ctx);
 
       expect(opts.onMessage).toHaveBeenCalledWith(
@@ -561,7 +576,9 @@ describe('TelegramChannel', () => {
       const channel = new TelegramChannel('test-token', opts);
       await channel.connect();
 
-      const ctx = createMediaCtx({ extra: { video: { file_id: 'video-123', mime_type: 'video/mp4' } } });
+      const ctx = createMediaCtx({
+        extra: { video: { file_id: 'video-123', mime_type: 'video/mp4' } },
+      });
       await triggerMediaMessage('message:video', ctx);
 
       expect(opts.onMessage).toHaveBeenCalledWith(
@@ -575,12 +592,16 @@ describe('TelegramChannel', () => {
       const channel = new TelegramChannel('test-token', opts);
       await channel.connect();
 
-      const ctx = createMediaCtx({ extra: { voice: { file_id: 'voice-123', duration: 5 } } });
+      const ctx = createMediaCtx({
+        extra: { voice: { file_id: 'voice-123', duration: 5 } },
+      });
       await triggerMediaMessage('message:voice', ctx);
 
       expect(opts.onMessage).toHaveBeenCalledWith(
         'tg:100200300',
-        expect.objectContaining({ content: '[Voice message: transcription unavailable]' }),
+        expect.objectContaining({
+          content: '[Voice message: transcription unavailable]',
+        }),
       );
     });
 
@@ -589,7 +610,9 @@ describe('TelegramChannel', () => {
       const channel = new TelegramChannel('test-token', opts);
       await channel.connect();
 
-      const ctx = createMediaCtx({ extra: { audio: { file_id: 'audio-456', duration: 10 } } });
+      const ctx = createMediaCtx({
+        extra: { audio: { file_id: 'audio-456', duration: 10 } },
+      });
       await triggerMediaMessage('message:audio', ctx);
 
       expect(opts.onMessage).toHaveBeenCalledWith(

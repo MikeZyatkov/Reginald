@@ -150,24 +150,18 @@ function createSchema(database: Database.Database): void {
 
   // Add reply context columns if they don't exist (migration for existing DBs)
   try {
-    database.exec(
-      `ALTER TABLE messages ADD COLUMN reply_to_message_id TEXT`,
-    );
+    database.exec(`ALTER TABLE messages ADD COLUMN reply_to_message_id TEXT`);
     database.exec(
       `ALTER TABLE messages ADD COLUMN reply_to_message_content TEXT`,
     );
-    database.exec(
-      `ALTER TABLE messages ADD COLUMN reply_to_sender_name TEXT`,
-    );
+    database.exec(`ALTER TABLE messages ADD COLUMN reply_to_sender_name TEXT`);
   } catch {
     /* columns already exist */
   }
 
   // Add model and assistant_name columns to registered_groups (sub-agent support)
   try {
-    database.exec(
-      `ALTER TABLE registered_groups ADD COLUMN model TEXT`,
-    );
+    database.exec(`ALTER TABLE registered_groups ADD COLUMN model TEXT`);
   } catch {
     /* column already exists */
   }
@@ -181,9 +175,7 @@ function createSchema(database: Database.Database): void {
 
   // Add media_json column to messages for image/video/document attachments
   try {
-    database.exec(
-      `ALTER TABLE messages ADD COLUMN media_json TEXT`,
-    );
+    database.exec(`ALTER TABLE messages ADD COLUMN media_json TEXT`);
   } catch {
     /* column already exists */
   }
@@ -388,13 +380,17 @@ export function getNewMessages(
 
   const rows = db
     .prepare(sql)
-    .all(lastTimestamp, ...jids, `${botPrefix}:%`, limit) as (NewMessage & { media_json?: string })[];
+    .all(lastTimestamp, ...jids, `${botPrefix}:%`, limit) as (NewMessage & {
+    media_json?: string;
+  })[];
 
   const messages: NewMessage[] = rows.map((row) => {
     const { media_json, ...rest } = row;
     return {
       ...rest,
-      media: media_json ? JSON.parse(media_json) as MediaAttachment[] : undefined,
+      media: media_json
+        ? (JSON.parse(media_json) as MediaAttachment[])
+        : undefined,
     };
   });
 
@@ -429,13 +425,17 @@ export function getMessagesSince(
   `;
   const rows = db
     .prepare(sql)
-    .all(chatJid, sinceTimestamp, `${botPrefix}:%`, limit) as (NewMessage & { media_json?: string })[];
+    .all(chatJid, sinceTimestamp, `${botPrefix}:%`, limit) as (NewMessage & {
+    media_json?: string;
+  })[];
 
   return rows.map((row) => {
     const { media_json, ...rest } = row;
     return {
       ...rest,
-      media: media_json ? JSON.parse(media_json) as MediaAttachment[] : undefined,
+      media: media_json
+        ? (JSON.parse(media_json) as MediaAttachment[])
+        : undefined,
     };
   });
 }

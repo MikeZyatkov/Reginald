@@ -128,8 +128,7 @@ function getOrRecoverCursor(chatJid: string): string {
   const existing = lastAgentTimestamp[chatJid];
   if (existing) return existing;
 
-  const botName =
-    registeredGroups[chatJid]?.assistantName || ASSISTANT_NAME;
+  const botName = registeredGroups[chatJid]?.assistantName || ASSISTANT_NAME;
   const botTs = getLastBotMessageTimestamp(chatJid, botName);
   if (botTs) {
     logger.info(
@@ -469,8 +468,7 @@ function routeToAgent(
     botName,
     MAX_MESSAGES_PER_PROMPT,
   );
-  const messagesToSend =
-    allPending.length > 0 ? allPending : groupMessages;
+  const messagesToSend = allPending.length > 0 ? allPending : groupMessages;
   const formatted = formatMessages(messagesToSend, TIMEZONE);
 
   if (queue.sendMessage(regJid, formatted)) {
@@ -485,7 +483,10 @@ function routeToAgent(
     channel
       .setTyping?.(baseChatJid, true)
       ?.catch((err) =>
-        logger.warn({ chatJid: baseChatJid, err }, 'Failed to set typing indicator'),
+        logger.warn(
+          { chatJid: baseChatJid, err },
+          'Failed to set typing indicator',
+        ),
       );
   } else {
     // No active container — enqueue for a new one
@@ -566,9 +567,7 @@ async function startMessageLoop(): Promise<void> {
           // Fall through to primary agent if no sub-agent matched
           if (!handled) {
             // Find the primary (non-virtual) registration
-            const primaryJid = registrations.find(
-              (jid) => !isVirtualJid(jid),
-            );
+            const primaryJid = registrations.find((jid) => !isVirtualJid(jid));
             if (!primaryJid) continue;
             const group = registeredGroups[primaryJid];
             if (!group) continue;

@@ -6,7 +6,12 @@ import { promisify } from 'util';
 
 import { Bot } from 'grammy';
 
-import { ASSISTANT_NAME, GROUPS_DIR, TRIGGER_PATTERN, WHISPER_MODEL } from '../config.js';
+import {
+  ASSISTANT_NAME,
+  GROUPS_DIR,
+  TRIGGER_PATTERN,
+  WHISPER_MODEL,
+} from '../config.js';
 import { logger } from '../logger.js';
 import {
   Channel,
@@ -23,7 +28,13 @@ export interface TelegramChannelOpts {
   onMessage: OnInboundMessage;
   onChatMetadata: OnChatMetadata;
   registeredGroups: () => Record<string, RegisteredGroup>;
-  getQueueStatus?: () => Array<{ groupJid: string; containerName: string | null; idleWaiting: boolean; pendingMessages: boolean; pendingTasks: number }>;
+  getQueueStatus?: () => Array<{
+    groupJid: string;
+    containerName: string | null;
+    idleWaiting: boolean;
+    pendingMessages: boolean;
+    pendingTasks: number;
+  }>;
   pipeToAgent?: (groupJid: string, text: string) => boolean;
 }
 
@@ -40,9 +51,14 @@ export class TelegramChannel implements Channel {
     this.opts = opts;
     if (WHISPER_MODEL) {
       this.whisperEnabled = true;
-      logger.info({ model: WHISPER_MODEL }, 'Local faster-whisper transcription enabled');
+      logger.info(
+        { model: WHISPER_MODEL },
+        'Local faster-whisper transcription enabled',
+      );
     } else {
-      logger.info('WHISPER_MODEL not set — voice messages will not be transcribed');
+      logger.info(
+        'WHISPER_MODEL not set — voice messages will not be transcribed',
+      );
     }
   }
 
@@ -69,7 +85,10 @@ export class TelegramChannel implements Channel {
       const url = `https://api.telegram.org/file/bot${this.botToken}/${file.file_path}`;
       const response = await fetch(url);
       if (!response.ok) {
-        logger.warn({ fileId, status: response.status }, 'Failed to download voice file');
+        logger.warn(
+          { fileId, status: response.status },
+          'Failed to download voice file',
+        );
         return null;
       }
 
@@ -78,9 +97,11 @@ export class TelegramChannel implements Channel {
 
       // Run faster-whisper via Python script
       const scriptPath = path.join(process.cwd(), 'scripts', 'transcribe.py');
-      const { stdout } = await execFileAsync('python3', [
-        scriptPath, WHISPER_MODEL, oggPath,
-      ], { timeout: 120000 });
+      const { stdout } = await execFileAsync(
+        'python3',
+        [scriptPath, WHISPER_MODEL, oggPath],
+        { timeout: 120000 },
+      );
 
       const transcript = stdout.trim();
       if (!transcript) {
@@ -99,7 +120,9 @@ export class TelegramChannel implements Channel {
     } finally {
       try {
         fs.rmSync(tmpDir, { recursive: true, force: true });
-      } catch { /* ignore cleanup errors */ }
+      } catch {
+        /* ignore cleanup errors */
+      }
     }
   }
 
@@ -124,7 +147,10 @@ export class TelegramChannel implements Channel {
       const url = `https://api.telegram.org/file/bot${this.botToken}/${file.file_path}`;
       const response = await fetch(url);
       if (!response.ok) {
-        logger.warn({ fileId, status: response.status }, 'Failed to download Telegram media');
+        logger.warn(
+          { fileId, status: response.status },
+          'Failed to download Telegram media',
+        );
         return null;
       }
 
@@ -138,7 +164,10 @@ export class TelegramChannel implements Channel {
       const filePath = path.join(mediaDir, filename);
       fs.writeFileSync(filePath, buffer);
 
-      logger.info({ fileId, filePath, size: buffer.length }, 'Telegram media saved');
+      logger.info(
+        { fileId, filePath, size: buffer.length },
+        'Telegram media saved',
+      );
       return filePath;
     } catch (err) {
       logger.error({ fileId, err }, 'Failed to download Telegram media');
@@ -190,7 +219,10 @@ export class TelegramChannel implements Channel {
         return;
       }
 
-      const statusPrompt = '<messages>\n<message sender="System" time="' + new Date().toISOString() + '">[STATUS CHECK] Briefly report what you are currently working on in 1-2 sentences. If you have background tasks running, mention them too.</message>\n</messages>';
+      const statusPrompt =
+        '<messages>\n<message sender="System" time="' +
+        new Date().toISOString() +
+        '">[STATUS CHECK] Briefly report what you are currently working on in 1-2 sentences. If you have background tasks running, mention them too.</message>\n</messages>';
 
       let piped = 0;
       for (const s of statuses) {
@@ -200,7 +232,9 @@ export class TelegramChannel implements Channel {
       }
 
       if (piped === 0) {
-        ctx.reply('Agents are active but not accepting input right now. Try again shortly.');
+        ctx.reply(
+          'Agents are active but not accepting input right now. Try again shortly.',
+        );
       }
     });
 
@@ -251,7 +285,8 @@ export class TelegramChannel implements Channel {
       // Only deliver full message for registered groups.
       // Also check for virtual JID registrations (sub-agents like tg:123#sonya)
       const groups = this.opts.registeredGroups();
-      const hasRegistration = groups[chatJid] ||
+      const hasRegistration =
+        groups[chatJid] ||
         Object.keys(groups).some((k) => baseJid(k) === chatJid);
       if (!hasRegistration) {
         logger.debug(
@@ -282,7 +317,8 @@ export class TelegramChannel implements Channel {
     const storeNonText = (ctx: any, placeholder: string) => {
       const chatJid = `tg:${ctx.chat.id}`;
       const groups = this.opts.registeredGroups();
-      const hasRegistration = groups[chatJid] ||
+      const hasRegistration =
+        groups[chatJid] ||
         Object.keys(groups).some((k) => baseJid(k) === chatJid);
       if (!hasRegistration) return;
 
@@ -320,7 +356,14 @@ export class TelegramChannel implements Channel {
       const caption = ctx.message.caption || '';
       const content = caption || '[Photo]';
       const media: MediaAttachment[] | undefined = filePath
-        ? [{ type: 'image', mimeType: 'image/jpeg', filePath, caption: caption || undefined }]
+        ? [
+            {
+              type: 'image',
+              mimeType: 'image/jpeg',
+              filePath,
+              caption: caption || undefined,
+            },
+          ]
         : undefined;
 
       const timestamp = new Date(ctx.message.date * 1000).toISOString();
@@ -384,7 +427,8 @@ export class TelegramChannel implements Channel {
     this.bot.on('message:voice', async (ctx) => {
       const chatJid = `tg:${ctx.chat.id}`;
       const groups = this.opts.registeredGroups();
-      const hasRegistration = groups[chatJid] ||
+      const hasRegistration =
+        groups[chatJid] ||
         Object.keys(groups).some((k) => baseJid(k) === chatJid);
       if (!hasRegistration) return;
 
@@ -399,7 +443,8 @@ export class TelegramChannel implements Channel {
     this.bot.on('message:audio', async (ctx) => {
       const chatJid = `tg:${ctx.chat.id}`;
       const groups = this.opts.registeredGroups();
-      const hasRegistration = groups[chatJid] ||
+      const hasRegistration =
+        groups[chatJid] ||
         Object.keys(groups).some((k) => baseJid(k) === chatJid);
       if (!hasRegistration) return;
 
@@ -426,7 +471,14 @@ export class TelegramChannel implements Channel {
       const caption = ctx.message.caption || '';
       const content = caption || `[Document: ${fileName}]`;
       const media: MediaAttachment[] | undefined = filePath
-        ? [{ type: 'document', mimeType, filePath, caption: caption || undefined }]
+        ? [
+            {
+              type: 'document',
+              mimeType,
+              filePath,
+              caption: caption || undefined,
+            },
+          ]
         : undefined;
 
       const timestamp = new Date(ctx.message.date * 1000).toISOString();

@@ -12,14 +12,21 @@ import makeWASocket, {
   useMultiFileAuthState,
 } from '@whiskeysockets/baileys';
 
-import { ASSISTANT_HAS_OWN_NUMBER, ASSISTANT_NAME, GROUPS_DIR, STORE_DIR } from '../config.js';
 import {
-  getLastGroupSync,
-  setLastGroupSync,
-  updateChatName,
-} from '../db.js';
+  ASSISTANT_HAS_OWN_NUMBER,
+  ASSISTANT_NAME,
+  GROUPS_DIR,
+  STORE_DIR,
+} from '../config.js';
+import { getLastGroupSync, setLastGroupSync, updateChatName } from '../db.js';
 import { logger } from '../logger.js';
-import { Channel, MediaAttachment, OnInboundMessage, OnChatMetadata, RegisteredGroup } from '../types.js';
+import {
+  Channel,
+  MediaAttachment,
+  OnInboundMessage,
+  OnChatMetadata,
+  RegisteredGroup,
+} from '../types.js';
 
 const GROUP_SYNC_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
@@ -58,7 +65,10 @@ export class WhatsAppChannel implements Channel {
     const { state, saveCreds } = await useMultiFileAuthState(authDir);
 
     const { version } = await fetchLatestWaWebVersion({}).catch((err) => {
-      logger.warn({ err }, 'Failed to fetch latest WA Web version, using default');
+      logger.warn(
+        { err },
+        'Failed to fetch latest WA Web version, using default',
+      );
       return { version: undefined };
     });
     this.sock = makeWASocket({
@@ -87,9 +97,18 @@ export class WhatsAppChannel implements Channel {
 
       if (connection === 'close') {
         this.connected = false;
-        const reason = (lastDisconnect?.error as { output?: { statusCode?: number } })?.output?.statusCode;
+        const reason = (
+          lastDisconnect?.error as { output?: { statusCode?: number } }
+        )?.output?.statusCode;
         const shouldReconnect = reason !== DisconnectReason.loggedOut;
-        logger.info({ reason, shouldReconnect, queuedMessages: this.outgoingQueue.length }, 'Connection closed');
+        logger.info(
+          {
+            reason,
+            shouldReconnect,
+            queuedMessages: this.outgoingQueue.length,
+          },
+          'Connection closed',
+        );
 
         if (shouldReconnect) {
           logger.info('Reconnecting...');
@@ -168,7 +187,13 @@ export class WhatsAppChannel implements Channel {
 
         // Always notify about chat metadata for group discovery
         const isGroup = chatJid.endsWith('@g.us');
-        this.opts.onChatMetadata(chatJid, timestamp, undefined, 'whatsapp', isGroup);
+        this.opts.onChatMetadata(
+          chatJid,
+          timestamp,
+          undefined,
+          'whatsapp',
+          isGroup,
+        );
 
         // Only deliver full message for registered groups
         const groups = this.opts.registeredGroups();
@@ -201,14 +226,28 @@ export class WhatsAppChannel implements Channel {
           let media: MediaAttachment[] | undefined;
           if (hasMedia && !isBotMessage) {
             const groupFolder = groups[chatJid].folder;
-            const downloaded = await this.downloadWAMedia(msg, groupFolder, imageMsg, videoMsg, documentMsg);
+            const downloaded = await this.downloadWAMedia(
+              msg,
+              groupFolder,
+              imageMsg,
+              videoMsg,
+              documentMsg,
+            );
             if (downloaded) {
               media = [downloaded];
             }
           }
 
           // For media messages without text, use a placeholder
-          const finalContent = content || (imageMsg ? '[Photo]' : videoMsg ? '[Video]' : documentMsg ? `[Document: ${documentMsg.fileName || 'file'}]` : '');
+          const finalContent =
+            content ||
+            (imageMsg
+              ? '[Photo]'
+              : videoMsg
+                ? '[Video]'
+                : documentMsg
+                  ? `[Document: ${documentMsg.fileName || 'file'}]`
+                  : '');
 
           this.opts.onMessage(chatJid, {
             id: msg.key.id || '',
@@ -237,7 +276,10 @@ export class WhatsAppChannel implements Channel {
 
     if (!this.connected) {
       this.outgoingQueue.push({ jid, text: prefixed });
-      logger.info({ jid, length: prefixed.length, queueSize: this.outgoingQueue.length }, 'WA disconnected, message queued');
+      logger.info(
+        { jid, length: prefixed.length, queueSize: this.outgoingQueue.length },
+        'WA disconnected, message queued',
+      );
       return;
     }
     try {
@@ -246,7 +288,10 @@ export class WhatsAppChannel implements Channel {
     } catch (err) {
       // If send fails, queue it for retry on reconnect
       this.outgoingQueue.push({ jid, text: prefixed });
-      logger.warn({ jid, err, queueSize: this.outgoingQueue.length }, 'Failed to send, message queued');
+      logger.warn(
+        { jid, err, queueSize: this.outgoingQueue.length },
+        'Failed to send, message queued',
+      );
     }
   }
 
@@ -316,9 +361,22 @@ export class WhatsAppChannel implements Channel {
   private async downloadWAMedia(
     msg: Parameters<typeof downloadMediaMessage>[0],
     groupFolder: string,
-    imageMsg: { mimetype?: string | null; caption?: string | null } | null | undefined,
-    videoMsg: { mimetype?: string | null; caption?: string | null } | null | undefined,
-    documentMsg: { mimetype?: string | null; fileName?: string | null; caption?: string | null } | null | undefined,
+    imageMsg:
+      | { mimetype?: string | null; caption?: string | null }
+      | null
+      | undefined,
+    videoMsg:
+      | { mimetype?: string | null; caption?: string | null }
+      | null
+      | undefined,
+    documentMsg:
+      | {
+          mimetype?: string | null;
+          fileName?: string | null;
+          caption?: string | null;
+        }
+      | null
+      | undefined,
   ): Promise<MediaAttachment | null> {
     try {
       const buffer = await downloadMediaMessage(msg, 'buffer', {});
@@ -331,7 +389,12 @@ export class WhatsAppChannel implements Channel {
       if (imageMsg) {
         mediaType = 'image';
         mimeType = imageMsg.mimetype || 'image/jpeg';
-        ext = mimeType === 'image/png' ? '.png' : mimeType === 'image/webp' ? '.webp' : '.jpg';
+        ext =
+          mimeType === 'image/png'
+            ? '.png'
+            : mimeType === 'image/webp'
+              ? '.webp'
+              : '.jpg';
         caption = imageMsg.caption || undefined;
       } else if (videoMsg) {
         mediaType = 'video';
@@ -355,7 +418,10 @@ export class WhatsAppChannel implements Channel {
       const filePath = path.join(mediaDir, filename);
       fs.writeFileSync(filePath, buffer);
 
-      logger.info({ filePath, size: buffer.length, mediaType }, 'WhatsApp media saved');
+      logger.info(
+        { filePath, size: buffer.length, mediaType },
+        'WhatsApp media saved',
+      );
       return { type: mediaType, mimeType, filePath, caption };
     } catch (err) {
       logger.error({ err }, 'Failed to download WhatsApp media');
@@ -370,7 +436,10 @@ export class WhatsAppChannel implements Channel {
     // Check local cache first
     const cached = this.lidToPhoneMap[lidUser];
     if (cached) {
-      logger.debug({ lidJid: jid, phoneJid: cached }, 'Translated LID to phone JID (cached)');
+      logger.debug(
+        { lidJid: jid, phoneJid: cached },
+        'Translated LID to phone JID (cached)',
+      );
       return cached;
     }
 
@@ -380,7 +449,10 @@ export class WhatsAppChannel implements Channel {
       if (pn) {
         const phoneJid = `${pn.split('@')[0].split(':')[0]}@s.whatsapp.net`;
         this.lidToPhoneMap[lidUser] = phoneJid;
-        logger.info({ lidJid: jid, phoneJid }, 'Translated LID to phone JID (signalRepository)');
+        logger.info(
+          { lidJid: jid, phoneJid },
+          'Translated LID to phone JID (signalRepository)',
+        );
         return phoneJid;
       }
     } catch (err) {
@@ -394,12 +466,18 @@ export class WhatsAppChannel implements Channel {
     if (this.flushing || this.outgoingQueue.length === 0) return;
     this.flushing = true;
     try {
-      logger.info({ count: this.outgoingQueue.length }, 'Flushing outgoing message queue');
+      logger.info(
+        { count: this.outgoingQueue.length },
+        'Flushing outgoing message queue',
+      );
       while (this.outgoingQueue.length > 0) {
         const item = this.outgoingQueue.shift()!;
         // Send directly — queued items are already prefixed by sendMessage
         await this.sock.sendMessage(item.jid, { text: item.text });
-        logger.info({ jid: item.jid, length: item.text.length }, 'Queued message sent');
+        logger.info(
+          { jid: item.jid, length: item.text.length },
+          'Queued message sent',
+        );
       }
     } finally {
       this.flushing = false;

@@ -26,9 +26,12 @@ export function formatMessages(
         : '';
     let inner = replySnippet + escapeXml(m.content);
     if (m.media && m.media.length > 0) {
-      const mediaTags = m.media.map((media) =>
-        `\n<media type="${escapeXml(media.type)}" path="${escapeXml(media.filePath)}" mimeType="${escapeXml(media.mimeType)}"/>`,
-      ).join('');
+      const mediaTags = m.media
+        .map(
+          (media) =>
+            `\n<media type="${escapeXml(media.type)}" path="${escapeXml(media.filePath)}" mimeType="${escapeXml(media.mimeType)}"/>`,
+        )
+        .join('');
       inner += mediaTags;
     }
     return `<message sender="${escapeXml(m.sender_name)}" time="${escapeXml(displayTime)}"${replyAttr}>${inner}</message>`;

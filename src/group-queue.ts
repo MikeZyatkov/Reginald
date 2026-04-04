@@ -347,8 +347,20 @@ export class GroupQueue {
   /**
    * Get status of all active groups for reporting.
    */
-  getStatus(): Array<{ groupJid: string; containerName: string | null; idleWaiting: boolean; pendingMessages: boolean; pendingTasks: number }> {
-    const result: Array<{ groupJid: string; containerName: string | null; idleWaiting: boolean; pendingMessages: boolean; pendingTasks: number }> = [];
+  getStatus(): Array<{
+    groupJid: string;
+    containerName: string | null;
+    idleWaiting: boolean;
+    pendingMessages: boolean;
+    pendingTasks: number;
+  }> {
+    const result: Array<{
+      groupJid: string;
+      containerName: string | null;
+      idleWaiting: boolean;
+      pendingMessages: boolean;
+      pendingTasks: number;
+    }> = [];
     for (const [jid, state] of this.groups) {
       if (state.active) {
         result.push({
