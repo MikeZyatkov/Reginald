@@ -3,7 +3,7 @@ import path from 'path';
 
 import { CronExpressionParser } from 'cron-parser';
 
-import { DATA_DIR, IPC_POLL_INTERVAL, TIMEZONE } from './config.js';
+import { DATA_DIR, GROUPS_DIR, IPC_POLL_INTERVAL, TIMEZONE } from './config.js';
 import { AvailableGroup } from './container-runner.js';
 import { createTask, deleteTask, getTaskById, updateTask } from './db.js';
 import { isValidGroupFolder } from './group-folder.js';
@@ -28,6 +28,33 @@ export interface IpcDeps {
     registeredJids: Set<string>,
   ) => void;
   onTasksChanged: () => void;
+}
+
+/**
+ * Translate a container image path to the host-side path.
+ * Inside the container, /workspace/group maps to GROUPS_DIR/<folder>,
+ * /workspace/global maps to GROUPS_DIR/global, etc.
+ */
+function resolveContainerImagePath(
+  containerPath: string,
+  sourceGroup: string,
+): string {
+  if (containerPath.startsWith('/workspace/group/')) {
+    return path.join(
+      GROUPS_DIR,
+      sourceGroup,
+      containerPath.slice('/workspace/group/'.length),
+    );
+  }
+  if (containerPath.startsWith('/workspace/global/')) {
+    return path.join(
+      GROUPS_DIR,
+      'global',
+      containerPath.slice('/workspace/global/'.length),
+    );
+  }
+  // If already a host path or unknown prefix, return as-is
+  return containerPath;
 }
 
 let ipcWatcherRunning = false;
@@ -107,9 +134,13 @@ export function startIpcWatcher(deps: IpcDeps): void {
                   isMain ||
                   (targetGroup && targetGroup.folder === sourceGroup)
                 ) {
+                  const hostImagePath = resolveContainerImagePath(
+                    data.imagePath,
+                    sourceGroup,
+                  );
                   await deps.sendImage(
                     data.chatJid,
-                    data.imagePath,
+                    hostImagePath,
                     data.caption,
                   );
                   logger.info(
@@ -117,6 +148,7 @@ export function startIpcWatcher(deps: IpcDeps): void {
                       chatJid: data.chatJid,
                       sourceGroup,
                       imagePath: data.imagePath,
+                      hostImagePath,
                     },
                     'IPC image sent',
                   );

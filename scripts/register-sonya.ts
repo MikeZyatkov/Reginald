@@ -10,7 +10,11 @@ initDatabase();
 const sonyaJid = 'tg:190301535#sonya';
 const existing = getRegisteredGroup(sonyaJid);
 if (existing) {
-  console.log(`Sonya already registered at ${sonyaJid}`);
+  setRegisteredGroup(sonyaJid, {
+    ...existing,
+    model: 'claude-opus-4-6',
+  });
+  console.log(`Updated Sonya at ${sonyaJid} with model: claude-opus-4-6`);
 } else {
   setRegisteredGroup(sonyaJid, {
     name: 'Sonya',
@@ -18,21 +22,21 @@ if (existing) {
     trigger: '^@Sonya\\b',
     added_at: new Date().toISOString(),
     requiresTrigger: true,
-    model: 'claude-sonnet-4-6',
+    model: 'claude-opus-4-6',
     assistantName: 'Sonya',
   });
   console.log(`Registered Sonya at ${sonyaJid}`);
 }
 
-// Update Sam's registration with explicit model
+// Update Sam's registration with default model (Sonnet 4.6)
 const samJid = 'tg:190301535';
 const sam = getRegisteredGroup(samJid);
 if (sam) {
   setRegisteredGroup(samJid, {
     ...sam,
-    model: 'claude-opus-4-6',
+    model: 'claude-sonnet-4-6',
   });
-  console.log(`Updated Sam at ${samJid} with model: claude-opus-4-6`);
+  console.log(`Updated Sam at ${samJid} with model: claude-sonnet-4-6`);
 } else {
   console.log(`Sam not registered at ${samJid} — register Sam first`);
 }

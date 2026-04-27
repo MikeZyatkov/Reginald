@@ -26,6 +26,7 @@ import {
 } from './container-runtime.js';
 import { OneCLI } from '@onecli-sh/sdk';
 import { validateAdditionalMounts } from './mount-security.js';
+import { readAllEnvVars } from './env.js';
 import { RegisteredGroup } from './types.js';
 
 const onecli = new OneCLI({ url: ONECLI_URL });
@@ -98,13 +99,18 @@ function buildVolumeMounts(
 
     // Shadow .env so the agent cannot read secrets from the mounted project root.
     // Secrets are passed via stdin instead (see readSecrets()).
-    const envFile = path.join(projectRoot, '.env');
-    if (fs.existsSync(envFile)) {
-      mounts.push({
-        hostPath: '/dev/null',
-        containerPath: '/workspace/project/.env',
-        readonly: true,
-      });
+    // Apple Container doesn't support file-level bind mounts (/dev/null trick),
+    // so we skip the shadow mount — the credential proxy injects secrets via
+    // stdin/env, and .env is excluded from the container's view via .gitignore.
+    if (CONTAINER_RUNTIME_BIN !== 'container') {
+      const envFile = path.join(projectRoot, '.env');
+      if (fs.existsSync(envFile)) {
+        mounts.push({
+          hostPath: '/dev/null',
+          containerPath: '/workspace/project/.env',
+          readonly: true,
+        });
+      }
     }
 
     // Main also gets its group folder as the working directory
@@ -274,10 +280,21 @@ async function buildContainerArgs(
   if (onecliApplied) {
     logger.info({ containerName }, 'OneCLI gateway config applied');
   } else {
-    logger.warn(
-      { containerName },
-      'OneCLI gateway not reachable — container will have no credentials',
-    );
+    // OneCLI not available (e.g. Apple Container) — inject all .env
+    // variables directly into the container environment.
+    const envVars = readAllEnvVars();
+    const envKeys = Object.keys(envVars);
+    if (envKeys.length > 0) {
+      for (const [key, value] of Object.entries(envVars)) {
+        args.push('-e', `${key}=${value}`);
+      }
+      logger.info({ containerName, count: envKeys.length }, 'Injecting .env vars into container');
+    } else {
+      logger.warn(
+        { containerName },
+        'No .env vars found — container will have no credentials',
+      );
+    }
   }
 
   // Runtime-specific args for host gateway resolution
