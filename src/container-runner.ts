@@ -288,7 +288,10 @@ async function buildContainerArgs(
       for (const [key, value] of Object.entries(envVars)) {
         args.push('-e', `${key}=${value}`);
       }
-      logger.info({ containerName, count: envKeys.length }, 'Injecting .env vars into container');
+      logger.info(
+        { containerName, count: envKeys.length },
+        'Injecting .env vars into container',
+      );
     } else {
       logger.warn(
         { containerName },
