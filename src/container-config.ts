@@ -47,6 +47,13 @@ export interface ContainerConfig {
   agentGroupId?: string;
   /** Max messages per prompt. Falls back to code default if unset. */
   maxMessagesPerPrompt?: number;
+  /**
+   * Per-agent environment variables. Injected into the container at spawn
+   * time as `-e KEY=VALUE`. The agent-runner spreads `process.env` into the
+   * provider's env passthrough, so anything set here reaches the underlying
+   * Claude Code process — including `ANTHROPIC_MODEL` to pin a specific model.
+   */
+  env?: Record<string, string>;
 }
 
 function emptyConfig(): ContainerConfig {
@@ -87,6 +94,7 @@ export function readContainerConfig(folder: string): ContainerConfig {
       assistantName: raw.assistantName,
       agentGroupId: raw.agentGroupId,
       maxMessagesPerPrompt: raw.maxMessagesPerPrompt,
+      env: raw.env,
     };
   } catch (err) {
     console.error(`[container-config] failed to parse ${p}: ${String(err)}`);
