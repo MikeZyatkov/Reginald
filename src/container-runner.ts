@@ -259,24 +259,30 @@ function buildMounts(
   // Agent group folder at /workspace/agent (RW for working files + CLAUDE.local.md)
   mounts.push({ hostPath: groupDir, containerPath: '/workspace/agent', readonly: false });
 
-  // container.json — nested RO mount on top of RW group dir so the agent
-  // can read its config but cannot modify it.
-  const containerJsonPath = path.join(groupDir, 'container.json');
-  if (fs.existsSync(containerJsonPath)) {
-    mounts.push({ hostPath: containerJsonPath, containerPath: '/workspace/agent/container.json', readonly: true });
+  // Apple Container only supports directory bind mounts, not file mounts —
+  // skip the three nested RO file mounts under it. The files are still
+  // accessible via the parent group-dir mount above; the only loss is the
+  // RO enforcement (agent has RW access through the directory mount). The
+  // composer regenerates them every spawn anyway, so any rogue writes get
+  // clobbered next time. Tracked: CT-2 in .nanoclaw-migrations/container.md.
+  const supportsFileMounts = CONTAINER_RUNTIME_BIN !== 'container';
+
+  if (supportsFileMounts) {
+    // container.json — nested RO mount on top of RW group dir so the agent
+    // can read its config but cannot modify it.
+    const containerJsonPath = path.join(groupDir, 'container.json');
+    if (fs.existsSync(containerJsonPath)) {
+      mounts.push({ hostPath: containerJsonPath, containerPath: '/workspace/agent/container.json', readonly: true });
+    }
+
+    // Composer-managed CLAUDE.md artifacts — nested RO mounts. Regenerated
+    // every spawn; agent-side writes would be clobbered, so enforce RO.
+    const composedClaudeMd = path.join(groupDir, 'CLAUDE.md');
+    if (fs.existsSync(composedClaudeMd)) {
+      mounts.push({ hostPath: composedClaudeMd, containerPath: '/workspace/agent/CLAUDE.md', readonly: true });
+    }
   }
 
-  // Composer-managed CLAUDE.md artifacts — nested RO mounts. These are
-  // regenerated from the shared base + fragments on every spawn; any
-  // agent-side writes would be clobbered, so enforce read-only. Only
-  // CLAUDE.local.md (per-group memory) remains RW via the group-dir mount.
-  // `.claude-shared.md` is a symlink whose target (`/app/CLAUDE.md`) is
-  // already RO-mounted, so writes through it fail regardless — no need for
-  // a nested mount there.
-  const composedClaudeMd = path.join(groupDir, 'CLAUDE.md');
-  if (fs.existsSync(composedClaudeMd)) {
-    mounts.push({ hostPath: composedClaudeMd, containerPath: '/workspace/agent/CLAUDE.md', readonly: true });
-  }
   const fragmentsDir = path.join(groupDir, '.claude-fragments');
   if (fs.existsSync(fragmentsDir)) {
     mounts.push({ hostPath: fragmentsDir, containerPath: '/workspace/agent/.claude-fragments', readonly: true });
@@ -289,10 +295,15 @@ function buildMounts(
   }
 
   // Shared CLAUDE.md — read-only, imported by the composed entry point via
-  // the `.claude-shared.md` symlink inside the group dir.
-  const sharedClaudeMd = path.join(process.cwd(), 'container', 'CLAUDE.md');
-  if (fs.existsSync(sharedClaudeMd)) {
-    mounts.push({ hostPath: sharedClaudeMd, containerPath: '/app/CLAUDE.md', readonly: true });
+  // the `.claude-shared.md` symlink inside the group dir. Skipped on Apple
+  // Container (no file bind mounts); composeGroupClaudeMd() inlines the
+  // contents into `.claude-shared.md` instead, reachable via the group-dir
+  // mount.
+  if (supportsFileMounts) {
+    const sharedClaudeMd = path.join(process.cwd(), 'container', 'CLAUDE.md');
+    if (fs.existsSync(sharedClaudeMd)) {
+      mounts.push({ hostPath: sharedClaudeMd, containerPath: '/app/CLAUDE.md', readonly: true });
+    }
   }
 
   // Per-group .claude-shared at /home/node/.claude (Claude state, settings,
@@ -486,6 +497,12 @@ async function buildContainerArgs(
       args.push('-v', `${mount.hostPath}:${mount.containerPath}`);
     }
   }
+
+  // The image's Dockerfile sets WORKDIR=/workspace/group (legacy v1 path).
+  // Apple Container chdirs before exec'ing the command and errors out if
+  // the directory doesn't exist; v2's host mounts the session at /workspace
+  // (no /group subdir). Override to a path that always exists.
+  args.push('-w', '/workspace/agent');
 
   // Override entrypoint: run v2 entry point directly via Bun (no tsc, no stdin).
   args.push('--entrypoint', 'bash');

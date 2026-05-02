@@ -45,8 +45,23 @@ export function composeGroupClaudeMd(group: AgentGroup): void {
     fs.mkdirSync(groupDir, { recursive: true });
   }
 
+  // .claude-shared.md is the imported base. Apple Container can't bind-mount
+  // single files (only directories), so we write the actual `container/CLAUDE.md`
+  // contents into the group dir — reachable via the directory mount of
+  // `groups/<folder>/` at `/workspace/agent/`. Falls back to a symlink to
+  // `/app/CLAUDE.md` if the host file is missing (legacy behavior).
   const sharedLink = path.join(groupDir, '.claude-shared.md');
-  syncSymlink(sharedLink, SHARED_CLAUDE_MD_CONTAINER_PATH);
+  const sharedSrc = path.join(process.cwd(), 'container', 'CLAUDE.md');
+  if (fs.existsSync(sharedSrc)) {
+    try {
+      fs.unlinkSync(sharedLink);
+    } catch {
+      /* missing */
+    }
+    writeAtomic(sharedLink, fs.readFileSync(sharedSrc, 'utf-8'));
+  } else {
+    syncSymlink(sharedLink, SHARED_CLAUDE_MD_CONTAINER_PATH);
+  }
 
   const fragmentsDir = path.join(groupDir, '.claude-fragments');
   if (!fs.existsSync(fragmentsDir)) {
