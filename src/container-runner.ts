@@ -21,6 +21,7 @@ import {
 } from './config.js';
 import { readContainerConfig, writeContainerConfig } from './container-config.js';
 import { CONTAINER_RUNTIME_BIN, hostGatewayArgs, readonlyMountArgs, stopContainer } from './container-runtime.js';
+import { readAllEnvVars } from './env.js';
 import { composeGroupClaudeMd } from './claude-md-compose.js';
 import { getAgentGroup } from './db/agent-groups.js';
 import { getDb, hasTable } from './db/connection.js';
@@ -426,6 +427,15 @@ async function buildContainerArgs(
   // Environment — only vars read by code we don't own.
   // Everything NanoClaw-specific is in container.json (read by runner at startup).
   args.push('-e', `TZ=${TIMEZONE}`);
+
+  // .env baseline: secrets the agent needs (GITHUB_TOKEN, VERCEL_TOKEN, …).
+  // Injected here because Apple Container's bridge network can't reach
+  // OneCLI's gateway on the host loopback, so the proxy-based credential
+  // path is unavailable. Per-agent overrides below win on key collisions.
+  const envFileVars = readAllEnvVars();
+  for (const [key, value] of Object.entries(envFileVars)) {
+    args.push('-e', `${key}=${value}`);
+  }
 
   // Provider-contributed env vars (e.g. XDG_DATA_HOME, OPENCODE_*, NO_PROXY).
   if (providerContribution.env) {
