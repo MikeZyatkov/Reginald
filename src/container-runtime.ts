@@ -8,8 +8,8 @@ import os from 'os';
 import { CONTAINER_INSTALL_LABEL } from './config.js';
 import { log } from './log.js';
 
-/** The container runtime binary name. */
-export const CONTAINER_RUNTIME_BIN = 'container';
+/** The container runtime binary name. Set per install — see CONTAINER_RUNTIME env var. */
+export const CONTAINER_RUNTIME_BIN: 'docker' | 'container' = 'docker';
 
 /** CLI args needed for the container to resolve the host gateway. */
 export function hostGatewayArgs(): string[] {
@@ -22,7 +22,7 @@ export function hostGatewayArgs(): string[] {
 
 /** Returns CLI args for a readonly bind mount. */
 export function readonlyMountArgs(hostPath: string, containerPath: string): string[] {
-  return ['--mount', `type=bind,source=${hostPath},target=${containerPath},readonly`];
+  return ['-v', `${hostPath}:${containerPath}:ro`];
 }
 
 /** Stop a container by name. Uses execFileSync to avoid shell injection. */
@@ -36,30 +36,24 @@ export function stopContainer(name: string): void {
 /** Ensure the container runtime is running, starting it if needed. */
 export function ensureContainerRuntimeRunning(): void {
   try {
-    execSync(`${CONTAINER_RUNTIME_BIN} system status`, { stdio: 'pipe' });
+    execSync(`${CONTAINER_RUNTIME_BIN} info`, {
+      stdio: 'pipe',
+      timeout: 10000,
+    });
     log.debug('Container runtime already running');
-  } catch {
-    log.info('Starting Apple Container runtime...');
-    try {
-      execSync(`${CONTAINER_RUNTIME_BIN} system start`, {
-        stdio: 'pipe',
-        timeout: 30000,
-      });
-      log.info('Container runtime started');
-    } catch (err) {
-      log.error('Failed to start Apple Container runtime', { err });
-      console.error('\n╔════════════════════════════════════════════════════════════════╗');
-      console.error('║  FATAL: Apple Container runtime failed to start                ║');
-      console.error('║                                                                ║');
-      console.error('║  Agents cannot run without a container runtime. To fix:        ║');
-      console.error('║  1. Ensure Apple Container is installed (container --version)  ║');
-      console.error('║  2. Run: container system start                                ║');
-      console.error('║  3. Restart NanoClaw                                           ║');
-      console.error('╚════════════════════════════════════════════════════════════════╝\n');
-      throw new Error('Container runtime is required but failed to start', {
-        cause: err,
-      });
-    }
+  } catch (err) {
+    log.error('Failed to reach container runtime', { err });
+    console.error('\n╔════════════════════════════════════════════════════════════════╗');
+    console.error('║  FATAL: Container runtime failed to start                      ║');
+    console.error('║                                                                ║');
+    console.error('║  Agents cannot run without a container runtime. To fix:        ║');
+    console.error('║  1. Ensure Docker is installed and running                     ║');
+    console.error('║  2. Run: docker info                                           ║');
+    console.error('║  3. Restart NanoClaw                                           ║');
+    console.error('╚════════════════════════════════════════════════════════════════╝\n');
+    throw new Error('Container runtime is required but failed to start', {
+      cause: err,
+    });
   }
 }
 
@@ -72,18 +66,14 @@ export function ensureContainerRuntimeRunning(): void {
  */
 export function cleanupOrphans(): void {
   try {
-    // Apple Container doesn't support `--filter label=` — list all and filter in JS.
-    const output = execSync(`${CONTAINER_RUNTIME_BIN} ls --format json`, {
-      stdio: ['pipe', 'pipe', 'pipe'],
-      encoding: 'utf-8',
-    });
-    const containers = JSON.parse(output || '[]') as Array<{
-      configuration?: { id?: string; labels?: Record<string, string> };
-    }>;
-    const orphans = containers
-      .filter((c) => c.configuration?.labels?.[CONTAINER_INSTALL_LABEL] !== undefined)
-      .map((c) => c.configuration!.id!)
-      .filter(Boolean);
+    const output = execSync(
+      `${CONTAINER_RUNTIME_BIN} ps --filter label=${CONTAINER_INSTALL_LABEL} --format '{{.Names}}'`,
+      {
+        stdio: ['pipe', 'pipe', 'pipe'],
+        encoding: 'utf-8',
+      },
+    );
+    const orphans = output.trim().split('\n').filter(Boolean);
     for (const name of orphans) {
       try {
         stopContainer(name);

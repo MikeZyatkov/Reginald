@@ -28,12 +28,29 @@ let _inbound: Database | null = null;
 let _outbound: Database | null = null;
 let _heartbeatPath: string = DEFAULT_HEARTBEAT_PATH;
 
-/** Inbound DB — container opens read-only (host is the sole writer). */
+/**
+ * Inbound DB — container opens read-only (host is the sole writer).
+ *
+ * Open-fresh on every call by design: under Apple Container's VirtioFS,
+ * a long-lived bun:sqlite connection caches pages and never sees the
+ * host's later writes (mmap coherency does not propagate host→guest).
+ * The host already opens-writes-closes per op (see session-manager.ts);
+ * this mirrors that pattern on the read side. Old _inbound handle (if any)
+ * is closed first so we don't leak file descriptors.
+ *
+ * Callers MUST NOT cache the returned handle — call getInboundDb() each
+ * time you need to read.
+ */
 export function getInboundDb(): Database {
-  if (!_inbound) {
-    _inbound = new Database(DEFAULT_INBOUND_PATH, { readonly: true });
-    _inbound.exec('PRAGMA busy_timeout = 5000');
+  if (_inbound) {
+    try {
+      _inbound.close();
+    } catch {
+      /* already closed */
+    }
   }
+  _inbound = new Database(DEFAULT_INBOUND_PATH, { readonly: true });
+  _inbound.exec('PRAGMA busy_timeout = 5000');
   return _inbound;
 }
 
